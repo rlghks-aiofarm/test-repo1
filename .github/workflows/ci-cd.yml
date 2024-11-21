@@ -42,6 +42,15 @@ jobs:
           docker build -t ${{ secrets.DOCKER_USERNAME }}/test-repo1:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/test-repo1:latest
 
+      # Trigger Kube-Test Pipeline
+      - name: Trigger Kube-Test Pipeline
+        run: |
+          curl -X POST \
+          -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
+          -H "Accept: application/vnd.github.everest-preview+json" \
+          https://api.github.com/repos/owner/kube-test/dispatches \
+          -d '{"event_type": "repo1-updated", "client_payload": {"updated_repo": "test-repo1"}}'
+
       # # Deploy to Kubernetes
       # - name: Set up kubectl
       #   uses: azure/setup-kubectl@v3
