@@ -1,4 +1,4 @@
-name: CI/CD for Repo1
+name: PR Integration Test for Repo1
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
           -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
           -H "Accept: application/vnd.github.everest-preview+json" \
           https://api.github.com/repos/rlghks-aiofarm/kube-test/dispatches \
-          -d '{"event_type": "repo1-updated", "client_payload": {"updated_repo": "test-repo1"}}'
+          -d '{"event_type": "pr-integration-test", "client_payload": {"updated_repo": "test-repo1"}}'
 
       # # Deploy to Kubernetes
       # - name: Set up kubectl
