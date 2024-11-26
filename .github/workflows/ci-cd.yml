@@ -120,7 +120,7 @@ jobs:
             response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
               https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/$run_id)
             echo "Current API Response: $response"
-            
+
             status=$(echo "$response" | jq -r '.status')
             conclusion=$(echo "$response" | jq -r '.conclusion')
 
@@ -142,6 +142,13 @@ jobs:
             ((retry_count++))
             sleep $sleep_time
           done
+
+      - name: Final Debugging
+        run: |
+          echo "Final debugging before exiting."
+          response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
+            https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/$run_id)
+          echo "Final API Response: $response"
 
       # # Deploy to Kubernetes
       # - name: Set up kubectl
