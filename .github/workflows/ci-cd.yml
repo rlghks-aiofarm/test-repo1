@@ -53,10 +53,9 @@ jobs:
             -d '{"event_type": "pr-integration-test", "client_payload": {"updated_repo": "test-repo1"}}')
 
           echo "Kube-Test triggered, checking status..."
-          # Ensure no output errors
           echo "::set-output name=trigger_status::success"
 
-      # Fetch the Latest Run ID from kube-test
+      # Fetch the Latest Run ID from Kube-Test
       - name: Fetch Kube-Test Run ID
         id: fetch_run_id
         run: |
@@ -68,7 +67,7 @@ jobs:
           echo "::set-output name=run_id::$run_id"
 
       # Poll Kube-Test Pipeline status
-      - name: Check Kube-Test Pipeline status
+      - name: Wait for Kube-Test to Complete
         run: |
           run_id=${{ steps.fetch_run_id.outputs.run_id }}
           status="in_progress"
@@ -85,13 +84,14 @@ jobs:
             status_response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
               https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/$run_id)
 
-            status=$(echo "$status_response" | jq -r '.conclusion')
+            conclusion=$(echo "$status_response" | jq -r '.conclusion')
+            status=$(echo "$status_response" | jq -r '.status')
 
-            echo "Current status: $status"
-            if [[ "$status" == "success" ]]; then
+            echo "Current status: $status, Conclusion: $conclusion"
+            if [[ "$conclusion" == "success" ]]; then
               echo "Kube-Test passed successfully."
               exit 0
-            elif [[ "$status" == "failure" ]]; then
+            elif [[ "$conclusion" == "failure" ]]; then
               echo "Kube-Test failed. Exiting workflow."
               exit 1
             fi
