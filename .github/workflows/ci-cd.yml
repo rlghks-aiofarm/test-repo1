@@ -102,21 +102,11 @@ jobs:
             exit 1
           fi
 
-          status="in_progress"
+          status="queued"
           conclusion="null"
-          max_retries=30
-          retry_count=0
-          sleep_time=10
+          sleep_time=15  # Adjust the polling interval here (increase to 15 seconds)
 
           while [[ "$status" == "queued" || "$status" == "in_progress" ]]; do
-            if [[ $retry_count -ge $max_retries ]]; then
-              echo "Kube-Test did not complete within the expected time. Exiting."
-              response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
-                https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/$run_id)
-              echo "API Response: $response"
-              exit 1
-            fi
-
             response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
               https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/$run_id)
             echo "Current API Response: $response"
@@ -124,22 +114,18 @@ jobs:
             status=$(echo "$response" | jq -r '.status')
             conclusion=$(echo "$response" | jq -r '.conclusion')
 
-            if [[ "$status" == "404" ]]; then
-              echo "Invalid run_id or run not found. Exiting."
-              exit 1
-            fi
-
             echo "Current status: $status, Conclusion: $conclusion"
+
             if [[ "$conclusion" == "success" ]]; then
               echo "Kube-Test passed successfully."
               exit 0
             elif [[ "$conclusion" == "failure" ]]; then
-              echo "Kube-Test failed. Exiting workflow."
+              echo "Kube-Test failed."
+              echo "API Response: $response"
               exit 1
             fi
 
-            echo "Waiting for 10 seconds before retrying..."
-            ((retry_count++))
+            echo "Kube-Test is still running. Waiting for $sleep_time seconds before retrying..."
             sleep $sleep_time
           done
 
