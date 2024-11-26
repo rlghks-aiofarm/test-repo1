@@ -53,6 +53,20 @@ jobs:
 
           echo "Kube-Test triggered, checking status..."
 
+      # Check the status of Kube-Test Pipeline
+      - name: Check Kube-Test Pipeline status
+        run: |
+          status_check_url="https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/${{ steps.kube_test_trigger.outputs.run_id }}/status"
+          status_response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" $status_check_url)
+
+          # Check if the status is success
+          if [[ "$status_response" != *"\"status\": \"success\""* ]]; then
+            echo "Kube-Test failed. Exiting workflow."
+            exit 1
+          else
+            echo "Kube-Test passed successfully."
+          fi
+
       # # Deploy to Kubernetes
       # - name: Set up kubectl
       #   uses: azure/setup-kubectl@v3
