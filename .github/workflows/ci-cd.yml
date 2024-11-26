@@ -44,28 +44,62 @@ jobs:
 
       # Trigger Kube-Test Pipeline
       - name: Trigger Kube-Test Pipeline
+        id: kube_test_trigger
         run: |
-          curl -X POST \
-          -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
-          -H "Accept: application/vnd.github.everest-preview+json" \
-          https://api.github.com/repos/rlghks-aiofarm/kube-test/dispatches \
-          -d '{"event_type": "pr-integration-test", "client_payload": {"updated_repo": "test-repo1"}}'
+          response=$(curl -X POST \
+            -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
+            -H "Accept: application/vnd.github.everest-preview+json" \
+            https://api.github.com/repos/rlghks-aiofarm/kube-test/dispatches \
+            -d '{"event_type": "pr-integration-test", "client_payload": {"updated_repo": "test-repo1"}}')
 
           echo "Kube-Test triggered, checking status..."
+          # Ensure no output errors
+          echo "::set-output name=trigger_status::success"
 
-      # Check the status of Kube-Test Pipeline
+      # Fetch the Latest Run ID from kube-test
+      - name: Fetch Kube-Test Run ID
+        id: fetch_run_id
+        run: |
+          run_id=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
+            https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs \
+            | jq -r '.workflow_runs | sort_by(.created_at) | reverse | .[0].id')
+
+          echo "Latest run ID is $run_id"
+          echo "::set-output name=run_id::$run_id"
+
+      # Poll Kube-Test Pipeline status
       - name: Check Kube-Test Pipeline status
         run: |
-          status_check_url="https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/${{ steps.kube_test_trigger.outputs.run_id }}/status"
-          status_response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" $status_check_url)
+          run_id=${{ steps.fetch_run_id.outputs.run_id }}
+          status="in_progress"
+          max_retries=30
+          retry_count=0
+          sleep_time=10
 
-          # Check if the status is success
-          if [[ "$status_response" != *"\"status\": \"success\""* ]]; then
-            echo "Kube-Test failed. Exiting workflow."
-            exit 1
-          else
-            echo "Kube-Test passed successfully."
-          fi
+          while [[ "$status" == "in_progress" ]] || [[ "$status" == "queued" ]]; do
+            if [[ $retry_count -ge $max_retries ]]; then
+              echo "Kube-Test did not complete within the expected time. Exiting."
+              exit 1
+            fi
+
+            status_response=$(curl -H "Authorization: token ${{ secrets.KUBE_TEST_TOKEN }}" \
+              https://api.github.com/repos/rlghks-aiofarm/kube-test/actions/runs/$run_id)
+
+            status=$(echo "$status_response" | jq -r '.conclusion')
+
+            echo "Current status: $status"
+            if [[ "$status" == "success" ]]; then
+              echo "Kube-Test passed successfully."
+              exit 0
+            elif [[ "$status" == "failure" ]]; then
+              echo "Kube-Test failed. Exiting workflow."
+              exit 1
+            fi
+
+            echo "Waiting for 10 seconds before retrying..."
+            ((retry_count++))
+            sleep $sleep_time
+          done
 
       # # Deploy to Kubernetes
       # - name: Set up kubectl
